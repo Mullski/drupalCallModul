@@ -3,23 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <title>Webcall</title>
-    <script src="http://cdn.peerjs.com/0.3/peer.js"></script>
-    <script src="scripts/callModul.js"></script>
+
     <link rel="stylesheet" href="style.css">
+    <link rel="import" href="/drupal-call/drupal-call.html">
 </head>
 <body>
 <h1>Webcall Test</h1>
-<div id="welcomeText">
-</div>
-<div class="videoCont">
-    <video id="selfVideo" autoplay></video>
-</div>
-<input type="text" id="name" value="antoni">
-<input type="button" id="registerBtn"value="register">
-<input type="text" id="callPeer" value="">
-<input type="button" id="callBtn" value="call" >
-<input type="text" id="addNewPeer" value="">
-<input type="button" id="addNewPeerBtn" value="add" >
 
+<drupal-call></drupal-call>
 </body>
 </html>
