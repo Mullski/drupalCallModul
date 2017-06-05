@@ -1,0 +1,8 @@
+.videoCont{
+    display: flex;
+
+}
+video{
+
+    width:200px;
+}
