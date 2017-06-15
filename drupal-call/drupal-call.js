@@ -67,8 +67,7 @@ class Store {
         this._notify("receivingPeer");
     }
 }
-var s = () => { alert("I SUCK AT LEAGUE"); setTimeout(s, 60000); };
-setTimeout(s, 1000000);
+
 
 class DrupalCall extends HTMLElement {
 
@@ -156,18 +155,17 @@ class DrupalVideo extends HTMLElement {
         super();
         var shadowRoot = this.attachShadow({ mode: 'open' });
         shadowRoot.innerHTML = `
-            <div class="videoCont">
-                <video id="selfVideo" autoplay></video>
-            </div>
-            <style>
-            video{
-                width:200px;
-            }
-            .videoCont{
-                display: flex;
-            }
-</style>
-        `;
+                <div class="videoCont">
+                    <video id="selfVideo" autoplay></video>
+                </div>
+                <style>
+                video{
+                    width:200px;
+                }
+                .videoCont{
+                    display: flex;
+                }
+            </style>`;
         this.DOM = this.shadowRoot.children;
         this.connectedPeers = [];
         this.datastreamMap = new Map();
@@ -197,20 +195,23 @@ class DrupalVideo extends HTMLElement {
         let peer = new Peer(state.name, { key: 'cksskorc4w50o1or' });
         this.Store.setPeer(peer);
     };
-    disconnectCall(state) {
+
+    disconnectCall(state) {        
         for (var i = 0; i < this.connectedPeers.length; i++) {
             var username = this.connectedPeers[i];
-            var datastream = this.datastreamMap.get(username);
+            var datastream = this.getDataStream(username);
             let message = { "label": "DISCONNECT", "payload": state.peer.id };
             datastream.send({ msg: message });
             location.reload();
         }
     };
+
     peerChanged(state) {
         let myPeer = state.peer;
-
-        state.peer.on('connection', function (conn) {
+        myPeer.on('connection', function (conn) {
             // Jemand will einen Datastream aufbauen
+            this.datastreamMap.set(conn.peer,conn); // Recyclen des Datastream Objektes
+        
             conn.on("data", (data) => {
                 //check for type of message
                 console.log(data.msg);
@@ -238,27 +239,21 @@ class DrupalVideo extends HTMLElement {
                 else {
                     console.log("nope");
                 }
-                conn.close();
+            
             });
         }.bind(this));
 
         console.log("more than one participant");
 
 
-        state.peer.on('call', (call) => {
-            console.log(state.groupPeers)
-            if (this.connectedPeers.length >= 1) {
-                if (this.connectedPeers.includes(call.peer)) {
-
-                }
-                else {
-                    this.acceptGrpCall(call, state);
-                }
-
+       myPeer.on('call', (call) => {
+            if (this.connectedPeers.length >= 1 && 
+                    !this.connectedPeers.includes(call.peer)) {
+                    this.acceptCall(call);
             }
+    
             else {
                 // Answer the call, providing our mediaStream
-                console.log("we answer");
                 var popUpCall = document.createElement("div");
                 popUpCall.setAttribute("id", "popUpCall");
                 var callText = document.createElement("p");
@@ -274,7 +269,7 @@ class DrupalVideo extends HTMLElement {
                 popUpCall.append(btnN);
                 //generate cancel call BTN
                 btnY.addEventListener("click", function () {
-                    this.acceptCall(call, state);
+                    this.acceptCall(call);
                 }.bind(this));
                 btnN.addEventListener("click", function () {
                     this.declineCall();
@@ -285,7 +280,8 @@ class DrupalVideo extends HTMLElement {
         });
 
     }
-    acceptCall(call, state) {
+    acceptCall(call) {
+        let state = this.state;
         this.shadowRoot.querySelector("#selfVideo").srcObject = this.video;
         call.answer(this.video);
         call.on('stream', (remoteStream) => {
@@ -299,40 +295,22 @@ class DrupalVideo extends HTMLElement {
             newVideoCont.append(nameP);
             this.shadowRoot.querySelector('.videoCont').append(newVideoCont);
             newVideo.srcObject = remoteStream;
+
+    
         });
-        //datastreams
-        let datastream = state.peer.connect(call.peer);
-        this.datastreamMap.set(call.peer, datastream);
+
         this.connectedPeers.push(call.peer);
         console.log(this.connectedPeers);
-        //remove call Div
-        var popUpCall = this.shadowRoot.querySelector("#popUpCall");
-        this.shadowRoot.querySelector('.videoCont').removeChild(popUpCall);
+        //remove call Div if given. 
+        try {
+            var popUpCall = this.shadowRoot.querySelector("#popUpCall");
+            this.shadowRoot.querySelector('.videoCont').removeChild(popUpCall);
+        } catch (error) {
+            // Thats ok.
+        }
 
     };
-    acceptGrpCall(call, state) {
-        this.shadowRoot.querySelector("#selfVideo").srcObject = this.video;
-        call.answer(this.video);
 
-        call.on('stream', (remoteStream) => {
-            var newVideo = document.createElement('video');
-            newVideo.autoplay = true;
-            var newVideoCont = document.createElement("div");
-            newVideoCont.setAttribute("id", call.peer);
-            newVideoCont.append(newVideo);
-            var nameP = document.createElement("p");
-            nameP.innerHTML = call.peer;
-            newVideoCont.append(nameP);
-            this.shadowRoot.querySelector('.videoCont').append(newVideoCont);
-            newVideo.srcObject = remoteStream;
-        });
-        let datastream = state.peer.connect(call.peer);
-        this.datastreamMap.set(call.peer, datastream);
-        let message = { "label": "ADDPEER", "payload": this.connectedPeers };
-        datastream.send({ msg: message });
-        this.connectedPeers.push(call.peer);
-        console.log(this.connectedPeers);
-    }
     declineCall() {
         //remove call Div
         var popUpCall = this.shadowRoot.querySelector("#popUpCall");
@@ -347,8 +325,7 @@ class DrupalVideo extends HTMLElement {
         console.log(receivePeer);
         receivePeer.forEach(person => {
             var call = state.peer.call(person, this.video);
-            let datastream = state.peer.connect(person);
-            this.datastreamMap.set(person, datastream);
+            
             call.on('stream', function (remoteStream) {
                 if (this.connectedPeers.includes(person)) {
                     console.log("already in there");
@@ -357,10 +334,8 @@ class DrupalVideo extends HTMLElement {
                     this.connectedPeers.push(person);
                     //JSON Objekt erstellen
                     let message = { "label": "ADDPEER", "payload": this.connectedPeers };
+                    let datastream = this.getDataStream(person);
                     datastream.send({ msg: message });
-
-                    console.log("Hier ");
-                    console.log(this.datastreams);
 
                     var newVideo = document.createElement('video');
                     newVideo.autoplay = true;
@@ -372,13 +347,24 @@ class DrupalVideo extends HTMLElement {
                     newVideoCont.append(nameP);
                     this.shadowRoot.querySelector(".videoCont").append(newVideoCont);
                     newVideo.srcObject = remoteStream;
-                    console.log(this.connectedPeers);
+
                 }
 
             }.bind(this));
 
         });
 
+    }
+
+
+    getDataStream(peer){
+        // Erstellt einen Datastream zu einem Peer, wenn noch nicht vorhanden.
+        let state = this.Store.getState();  
+         if(this.datastreamMap.get(peer) == null){
+                let datastream = state.peer.connect(peer,{"serialization":"json"});
+                this.datastreamMap.set(peer, datastream);
+        }
+        return this.datastreamMap.get(peer);
     }
 
 }
